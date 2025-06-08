@@ -2,6 +2,8 @@
 #define CUSTOMGRAPHICSVIEW_H
 
 #include <QGraphicsView>
+#include <QMouseEvent>
+#include <QPointF>
 
 class CustomGraphicsView : public QGraphicsView
 {

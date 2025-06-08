@@ -2,11 +2,17 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "customgraphicsview.h"
 #include <QGraphicsScene>
+#include <QGraphicsView>
+#include <QGraphicsEllipseItem>
+#include <QGraphicsLineItem>
 #include <QPushButton>
-#include <QVector2D>
-
+#include <QPointF>
+#include <QList>
+#include <QLineF>
+#include <QDebug>
+#include <QMouseEvent>
+#include "customgraphicsview.h"
 
 class MainWindow : public QMainWindow
 {
@@ -14,33 +20,58 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
 
-private:
-    QPushButton *toggleRedLinesButton;
-    bool redLinesVisible = false;
-    QList<QGraphicsLineItem*> redLines;
-    QGraphicsEllipseItem *targetCircle;
-    QGraphicsScene *scene;
-    CustomGraphicsView *view;
-    QList<QGraphicsLineItem*> allBlueRays;
-    QList<QGraphicsLineItem*> bestBlueRay;
-    qreal bestBlueLength = std::numeric_limits<qreal>::max();
-    void toggleRedLinesVisibility();
-    void onSceneClicked(const QPointF &point, Qt::MouseButton button);
-    void addTestComponents();
-    void launchRayTracing(const QPointF &start, double angleDeg, int maxBounces);
-    bool rayIntersectsCircle(const QPointF &rayStart, const QVector2D &direction, const QPointF &circleCenter, double radius, double &t);
-
     struct TraceVertex {
         QPointF point;
-        int segmentBefore; // индекс сегмента перед вершиной
-        int segmentAfter;  // индекс сегмента после вершины
+        int segmentBefore;
+        int segmentAfter;
     };
 
-    QPushButton *optimizeButton;
+    // Структура для хранения набора лучей из одной точки
+    struct RaySet {
+        QPointF startPoint;                        // Точка старта лучей
+        QList<QGraphicsLineItem*> redLines;        // Красные лучи (не попавшие в цель)
+        QList<QGraphicsLineItem*> allBlueRays;     // Все синие лучи (попавшие в цель)
+        QList<QGraphicsLineItem*> bestBlueRay;     // Лучший синий луч
+        qreal bestBlueLength;                      // Длина лучшего пути
+        RaySet() : bestBlueLength(std::numeric_limits<qreal>::max()) {}
+    };
+
+private slots:
+    void onSceneClicked(const QPointF &point, Qt::MouseButton button);
+    void toggleRedLinesVisibility();
+    void performOptimization();
+    void clearAllRays();
+    void toggleMode();
+
+private:
+    void addTestComponents();
+    void launchRayTracing(const QPointF &start, double angleDeg, int maxBounces, RaySet& raySet);
     QList<TraceVertex> getVerticesFromTrace(const QList<QGraphicsLineItem*>& trace);
     bool isDirectPathClear(const QPointF& start, const QPointF& end);
     QList<QLineF> optimizeTraceSegments(const QList<QGraphicsLineItem*>& originalTrace);
-    void performOptimization();
+    void updateModeButtonText();
 
+    bool intersectRayWithExistingTraces(const QPointF &rayStart, const QVector2D &direction,
+                                        double rayLength, QPointF &intersectionPoint,
+                                        QVector2D &reflectionNormal, double &distance);
+
+    QGraphicsScene *scene;
+    CustomGraphicsView *view;
+    QGraphicsEllipseItem *targetCircle;
+
+    // Кнопки управления
+    QPushButton *toggleRedLinesButton;
+    QPushButton *optimizeButton;
+    QPushButton *clearAllButton;
+    QPushButton *toggleModeButton;
+
+    // Хранение всех наборов лучей
+    QList<RaySet> allRaySets;
+    int currentRaySetIndex;
+
+    // Состояние видимости и режима
+    bool redLinesVisible;
+    bool addMode;  // true = добавление лучей, false = замена лучей
 };
+
 #endif // MAINWINDOW_H
