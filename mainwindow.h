@@ -12,6 +12,10 @@
 #include <QLineF>
 #include <QDebug>
 #include <QMouseEvent>
+#include <QLabel>
+#include <QMenu>
+#include <QAction>
+#include <QActionGroup>
 #include "customgraphicsview.h"
 
 class MainWindow : public QMainWindow
@@ -37,7 +41,6 @@ public:
     };
 
 private slots:
-    void toggleMode();
     void toggleTargetMode();
     void toggleObstacleMode();
     void clearAllRays();
@@ -46,8 +49,12 @@ private slots:
     void performOptimization();
     void onMouseMoved(const QPointF &point);
 
+    void setAddMode();
+    void setReplaceMode();
+    void showTracingModeMenu();
+
 private:
-    void updateModeButtonText();
+    void updateStatusLabel();
     void updateTargetButtonText();
     void updateObstacleButtonText();
     void createObstacle(const QPointF &startPoint, const QPointF &endPoint);
@@ -59,7 +66,6 @@ private:
     void launchRayTracing(const QPointF &start, double angleDeg, int maxBounces, RaySet& raySet);
     bool isDirectPathClear(const QPointF& start, const QPointF& end);
     QList<QLineF> optimizeTraceSegments(const QList<QGraphicsLineItem*>& originalTrace);
-
     QGraphicsScene *scene;
     CustomGraphicsView *view;
     QGraphicsEllipseItem *targetCircle;
@@ -68,13 +74,16 @@ private:
     QPushButton *toggleRedLinesButton;
     QPushButton *optimizeButton;
     QPushButton *clearAllButton;
-    QPushButton *toggleModeButton;
     QPushButton *setTargetButton;
     QPushButton *createObstacleButton;
 
+    QLabel* statusLabel;          // Информативное поле с текущим режимом
+    QMenu* tracingModeMenu;       // Всплывающее меню для режимов трассировки
+    QAction* addModeAction;       // Действие для режима добавления
+    QAction* replaceModeAction;
+
     // Хранение всех наборов лучей
     QList<RaySet> allRaySets;
-    int currentRaySetIndex;
 
     // Состояние видимости и режима
     bool redLinesVisible;
@@ -82,7 +91,7 @@ private:
     bool targetMode;
     bool obstacleMode;
 
-    //Точка начала создания препятствия
+    //Переменные для создания препядствия
     QPointF obstacleStartPoint;
     QGraphicsRectItem* tempObstacleRect = nullptr;
     QList<QGraphicsRectItem*> createdObstacles;

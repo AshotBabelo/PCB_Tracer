@@ -6,14 +6,8 @@
 #include <QFile>
 #include <QDir>
 
+
 namespace {
-void deleteGraphicsLines(QGraphicsScene* scene, QList<QGraphicsLineItem*>& lines) {
-    for (QGraphicsLineItem* line : lines) {
-        scene->removeItem(line);
-        delete line;
-    }
-    lines.clear();
-}
 
 QGraphicsRectItem* addObstacle(QGraphicsScene* scene, double x, double y, double w, double h) {
     auto* item = new QGraphicsRectItem(0, 0, w, h);
@@ -38,7 +32,42 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent) {
     connect(view, &CustomGraphicsView::mouseMoved, this, &MainWindow::onMouseMoved);
     addTestComponents(QCoreApplication::applicationDirPath() + "/obstacles.txt");
 
-    // Кнопки управления
+    // Создаем информативное поле с текущим режимом
+    statusLabel = new QLabel("Режим: Добавление трасс", this);
+    statusLabel->setGeometry(20, 20, 250, 30);
+    statusLabel->setStyleSheet(
+        "QLabel {"
+        "    background-color: #f0f0f0;"
+        "    border: 2px solid #cccccc;"
+        "    border-radius: 5px;"
+        "    padding: 5px;"
+        "    font-weight: bold;"
+        "    color: #333333;"
+        "}"
+        );
+
+    // Создаем всплывающее меню для режимов трассировки
+    tracingModeMenu = new QMenu("Режимы трассировки", this);
+
+    addModeAction = new QAction("Режим добавления", this);
+    addModeAction->setCheckable(true);
+    addModeAction->setChecked(true);
+    connect(addModeAction, &QAction::triggered, this, &MainWindow::setAddMode);
+
+    replaceModeAction = new QAction("Режим замены", this);
+    replaceModeAction->setCheckable(true);
+    replaceModeAction->setChecked(false);
+    connect(replaceModeAction, &QAction::triggered, this, &MainWindow::setReplaceMode);
+
+    // Создаем группу действий для взаимоисключающего выбора
+    QActionGroup* modeGroup = new QActionGroup(this);
+    modeGroup->addAction(addModeAction);
+    modeGroup->addAction(replaceModeAction);
+
+    tracingModeMenu->addAction(addModeAction);
+    tracingModeMenu->addAction(replaceModeAction);
+
+    // Кнопки управления (обновляем позиции)
     toggleRedLinesButton = new QPushButton("Скрыть красные лучи", this);
     toggleRedLinesButton->setGeometry(300, 20, 180, 30);
     connect(toggleRedLinesButton, &QPushButton::clicked, this, &MainWindow::toggleRedLinesVisibility);
@@ -51,9 +80,10 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent) {
     clearAllButton->setGeometry(500, 20, 180, 30);
     connect(clearAllButton, &QPushButton::clicked, this, &MainWindow::clearAllRays);
 
-    toggleModeButton = new QPushButton("Режим: Замена", this);
-    toggleModeButton->setGeometry(500, 60, 180, 30);
-    connect(toggleModeButton, &QPushButton::clicked, this, &MainWindow::toggleMode);
+    // Кнопка для вызова меню режимов трассировки
+    QPushButton* tracingModeButton = new QPushButton("Режимы трассировки", this);
+    tracingModeButton->setGeometry(500, 60, 180, 30);
+    connect(tracingModeButton, &QPushButton::clicked, this, &MainWindow::showTracingModeMenu);
 
     // Новая кнопка для задания конечной точки
     setTargetButton = new QPushButton("Задать конечную точку", this);
@@ -66,24 +96,19 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent) {
     connect(createObstacleButton, &QPushButton::clicked, this, &MainWindow::toggleObstacleMode);
 
     addMode = true;
-    targetMode = false; // Новый режим для задания целевой точки
+    targetMode = false;
     obstacleMode = false;
     obstacleStartPoint = QPointF();
-    updateModeButtonText();
+    updateStatusLabel();
 }
 
-void MainWindow::toggleMode() {
-    if (!targetMode) { // Переключаем обычные режимы только если не в режиме задания цели
-        addMode = !addMode;
-        updateModeButtonText();
-    }
-}
+
 
 void MainWindow::toggleTargetMode() {
-    if (!obstacleMode) { // Можно включить режим цели только если не создаем препятствие
+    if (!obstacleMode) {
         targetMode = !targetMode;
         updateTargetButtonText();
-        updateModeButtonText();
+        updateStatusLabel();
 
         if (targetMode) {
             view->setCursor(Qt::CrossCursor);
@@ -94,17 +119,16 @@ void MainWindow::toggleTargetMode() {
 }
 
 void MainWindow::toggleObstacleMode() {
-    if (!targetMode) { // Можно включить режим препятствий только если не задаем цель
+    if (!targetMode) {
         obstacleMode = !obstacleMode;
         updateObstacleButtonText();
-        updateModeButtonText();
+        updateStatusLabel();
 
         if (obstacleMode) {
             view->setCursor(Qt::CrossCursor);
-            obstacleStartPoint = QPointF(); // Сбрасываем точку начала
+            obstacleStartPoint = QPointF();
         } else {
             view->setCursor(Qt::ArrowCursor);
-            // Если отменяем создание препятствия в процессе, удаляем временный прямоугольник
             if (tempObstacleRect) {
                 scene->removeItem(tempObstacleRect);
                 delete tempObstacleRect;
@@ -113,14 +137,35 @@ void MainWindow::toggleObstacleMode() {
         }
     }
 }
-void MainWindow::updateModeButtonText() {
-    if (targetMode) {
-        toggleModeButton->setText("Режим: Задание цели");
-    } else if (obstacleMode) {
-        toggleModeButton->setText("Режим: Создание препятствий");
-    } else {
-        toggleModeButton->setText(addMode ? "Режим: Добавление" : "Режим: Замена");
+
+void MainWindow::setAddMode() {
+    addMode = true;
+    updateStatusLabel();
+}
+
+void MainWindow::setReplaceMode() {
+    addMode = false;
+    updateStatusLabel();
+}
+
+void MainWindow::showTracingModeMenu() {
+    QPushButton* button = qobject_cast<QPushButton*>(sender());
+    if (button) {
+        QPoint menuPos = button->mapToGlobal(QPoint(0, button->height()));
+        tracingModeMenu->exec(menuPos);
     }
+}
+
+void MainWindow::updateStatusLabel() {
+    QString statusText;
+    if (targetMode) {
+        statusText = "Режим: Задание конечной точки";
+    } else if (obstacleMode) {
+        statusText = "Режим: Создание препятствий";
+    } else {
+        statusText = addMode ? "Режим: Добавление трасс" : "Режим: Замена трасс";
+    }
+    statusLabel->setText(statusText);
 }
 
 void MainWindow::updateTargetButtonText() {
@@ -132,12 +177,14 @@ void MainWindow::updateObstacleButtonText() {
 
 void MainWindow::clearAllRays() {
     for (auto& raySet : allRaySets) {
-        deleteGraphicsLines(scene, raySet.redLines);
-        deleteGraphicsLines(scene, raySet.allBlueRays);
-        deleteGraphicsLines(scene, raySet.bestBlueRay);
+        qDeleteAll(raySet.redLines);
+        raySet.redLines.clear();
+        qDeleteAll(raySet.allBlueRays);
+        raySet.allBlueRays.clear();
+        qDeleteAll(raySet.bestBlueRay);
+        raySet.bestBlueRay.clear();
     }
     allRaySets.clear();
-    currentRaySetIndex = -1;
 }
 
 void MainWindow::toggleRedLinesVisibility() {
@@ -162,7 +209,7 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
             setTargetPoint(point);
             targetMode = false;
             updateTargetButtonText();
-            updateModeButtonText();
+            updateStatusLabel();
             view->setCursor(Qt::ArrowCursor);
             return;
         }
@@ -194,7 +241,7 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
                 obstacleMode = false;
                 obstacleStartPoint = QPointF();
                 updateObstacleButtonText();
-                updateModeButtonText();
+                updateStatusLabel();
                 view->setCursor(Qt::ArrowCursor);
             }
             return;
@@ -217,7 +264,6 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
         }
 
         allRaySets.append(newRaySet);
-        currentRaySetIndex = allRaySets.size() - 1;
 
         // Скрываем красные лучи по умолчанию
         for (QGraphicsLineItem *line : newRaySet.redLines) {
