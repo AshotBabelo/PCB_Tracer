@@ -43,13 +43,18 @@ template <> constexpr inline auto CustomGraphicsView::qt_create_metaobjectdata<q
         "",
         "point",
         "Qt::MouseButton",
-        "button"
+        "button",
+        "mouseMoved"
     };
 
     QtMocHelpers::UintData qt_methods {
         // Signal 'pointClicked'
         QtMocHelpers::SignalData<void(const QPointF &, Qt::MouseButton)>(1, 2, QMC::AccessPublic, QMetaType::Void, {{
             { QMetaType::QPointF, 3 }, { 0x80000000 | 4, 5 },
+        }}),
+        // Signal 'mouseMoved'
+        QtMocHelpers::SignalData<void(const QPointF &)>(6, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QPointF, 3 },
         }}),
     };
     QtMocHelpers::UintData qt_properties {
@@ -75,11 +80,14 @@ void CustomGraphicsView::qt_static_metacall(QObject *_o, QMetaObject::Call _c, i
     if (_c == QMetaObject::InvokeMetaMethod) {
         switch (_id) {
         case 0: _t->pointClicked((*reinterpret_cast< std::add_pointer_t<QPointF>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<Qt::MouseButton>>(_a[2]))); break;
+        case 1: _t->mouseMoved((*reinterpret_cast< std::add_pointer_t<QPointF>>(_a[1]))); break;
         default: ;
         }
     }
     if (_c == QMetaObject::IndexOfMethod) {
         if (QtMocHelpers::indexOfMethod<void (CustomGraphicsView::*)(const QPointF & , Qt::MouseButton )>(_a, &CustomGraphicsView::pointClicked, 0))
+            return;
+        if (QtMocHelpers::indexOfMethod<void (CustomGraphicsView::*)(const QPointF & )>(_a, &CustomGraphicsView::mouseMoved, 1))
             return;
     }
 }
@@ -103,14 +111,14 @@ int CustomGraphicsView::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 1)
+        if (_id < 2)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 1;
+        _id -= 2;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 1)
+        if (_id < 2)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 1;
+        _id -= 2;
     }
     return _id;
 }
@@ -119,5 +127,11 @@ int CustomGraphicsView::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 void CustomGraphicsView::pointClicked(const QPointF & _t1, Qt::MouseButton _t2)
 {
     QMetaObject::activate<void>(this, &staticMetaObject, 0, nullptr, _t1, _t2);
+}
+
+// SIGNAL 1
+void CustomGraphicsView::mouseMoved(const QPointF & _t1)
+{
+    QMetaObject::activate<void>(this, &staticMetaObject, 1, nullptr, _t1);
 }
 QT_WARNING_POP

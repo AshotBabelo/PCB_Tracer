@@ -35,7 +35,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent) {
     setCentralWidget(view);
 
     connect(view, &CustomGraphicsView::pointClicked, this, &MainWindow::onSceneClicked);
-
+    connect(view, &CustomGraphicsView::mouseMoved, this, &MainWindow::onMouseMoved);
     addTestComponents(QCoreApplication::applicationDirPath() + "/obstacles.txt");
 
     // Кнопки управления
@@ -60,8 +60,15 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent) {
     setTargetButton->setGeometry(700, 20, 180, 30);
     connect(setTargetButton, &QPushButton::clicked, this, &MainWindow::toggleTargetMode);
 
+    // Новая кнопка для создания препятствий
+    createObstacleButton = new QPushButton("Создать препятствие", this);
+    createObstacleButton->setGeometry(700, 60, 180, 30);
+    connect(createObstacleButton, &QPushButton::clicked, this, &MainWindow::toggleObstacleMode);
+
     addMode = true;
     targetMode = false; // Новый режим для задания целевой точки
+    obstacleMode = false;
+    obstacleStartPoint = QPointF();
     updateModeButtonText();
 }
 
@@ -73,20 +80,44 @@ void MainWindow::toggleMode() {
 }
 
 void MainWindow::toggleTargetMode() {
-    targetMode = !targetMode;
-    updateTargetButtonText();
+    if (!obstacleMode) { // Можно включить режим цели только если не создаем препятствие
+        targetMode = !targetMode;
+        updateTargetButtonText();
+        updateModeButtonText();
 
-    if (targetMode) {
-        // При входе в режим задания цели, отключаем обычные режимы
-        view->setCursor(Qt::CrossCursor); // Изменяем курсор для указания режима
-    } else {
-        view->setCursor(Qt::ArrowCursor); // Возвращаем обычный курсор
+        if (targetMode) {
+            view->setCursor(Qt::CrossCursor);
+        } else {
+            view->setCursor(Qt::ArrowCursor);
+        }
     }
 }
 
+void MainWindow::toggleObstacleMode() {
+    if (!targetMode) { // Можно включить режим препятствий только если не задаем цель
+        obstacleMode = !obstacleMode;
+        updateObstacleButtonText();
+        updateModeButtonText();
+
+        if (obstacleMode) {
+            view->setCursor(Qt::CrossCursor);
+            obstacleStartPoint = QPointF(); // Сбрасываем точку начала
+        } else {
+            view->setCursor(Qt::ArrowCursor);
+            // Если отменяем создание препятствия в процессе, удаляем временный прямоугольник
+            if (tempObstacleRect) {
+                scene->removeItem(tempObstacleRect);
+                delete tempObstacleRect;
+                tempObstacleRect = nullptr;
+            }
+        }
+    }
+}
 void MainWindow::updateModeButtonText() {
     if (targetMode) {
         toggleModeButton->setText("Режим: Задание цели");
+    } else if (obstacleMode) {
+        toggleModeButton->setText("Режим: Создание препятствий");
     } else {
         toggleModeButton->setText(addMode ? "Режим: Добавление" : "Режим: Замена");
     }
@@ -94,6 +125,9 @@ void MainWindow::updateModeButtonText() {
 
 void MainWindow::updateTargetButtonText() {
     setTargetButton->setText(targetMode ? "Отменить задание цели" : "Задать конечную точку");
+}
+void MainWindow::updateObstacleButtonText() {
+    createObstacleButton->setText(obstacleMode ? "Отменить создание" : "Создать препятствие");
 }
 
 void MainWindow::clearAllRays() {
@@ -133,6 +167,39 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
             return;
         }
 
+        if (obstacleMode) {
+            // Режим создания препятствий
+            if (obstacleStartPoint.isNull()) {
+                // Первый клик - задаем начальную точку
+                obstacleStartPoint = point;
+
+                // Создаем временный прямоугольник размером 1x1 пиксель
+                tempObstacleRect = new QGraphicsRectItem(0, 0, 1, 1);
+                tempObstacleRect->setPos(point);
+                tempObstacleRect->setBrush(QBrush(Qt::gray, Qt::DiagCrossPattern)); // Паттерн для отличия от готовых препятствий
+                tempObstacleRect->setPen(QPen(Qt::darkGray, 2, Qt::DashLine));
+                scene->addItem(tempObstacleRect);
+            } else {
+                // Второй клик - создаем препятствие
+                createObstacle(obstacleStartPoint, point);
+
+                // Удаляем временный прямоугольник
+                if (tempObstacleRect) {
+                    scene->removeItem(tempObstacleRect);
+                    delete tempObstacleRect;
+                    tempObstacleRect = nullptr;
+                }
+
+                // Выходим из режима создания препятствий
+                obstacleMode = false;
+                obstacleStartPoint = QPointF();
+                updateObstacleButtonText();
+                updateModeButtonText();
+                view->setCursor(Qt::ArrowCursor);
+            }
+            return;
+        }
+
         // Обычный режим трассировки
         if (!addMode) {
             clearAllRays();
@@ -163,6 +230,40 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
         redLinesVisible = false;
         toggleRedLinesButton->setText("Показать красные лучи");
     }
+}
+
+void MainWindow::onMouseMoved(const QPointF &point) {
+    if (obstacleMode && !obstacleStartPoint.isNull() && tempObstacleRect) {
+        // Обновляем размер временного прямоугольника
+        double x = qMin(obstacleStartPoint.x(), point.x());
+        double y = qMin(obstacleStartPoint.y(), point.y());
+        double width = qAbs(point.x() - obstacleStartPoint.x());
+        double height = qAbs(point.y() - obstacleStartPoint.y());
+
+        tempObstacleRect->setRect(0, 0, width, height);
+        tempObstacleRect->setPos(x, y);
+    }
+}
+
+void MainWindow::createObstacle(const QPointF &startPoint, const QPointF &endPoint) {
+    // Вычисляем параметры прямоугольника
+    double x = qMin(startPoint.x(), endPoint.x());
+    double y = qMin(startPoint.y(), endPoint.y());
+    double width = qAbs(endPoint.x() - startPoint.x());
+    double height = qAbs(endPoint.y() - startPoint.y());
+
+    // Минимальный размер препятствия
+    const double minSize = 10.0;
+    if (width < minSize) width = minSize;
+    if (height < minSize) height = minSize;
+
+    // Создаем новое препятствие
+    QGraphicsRectItem* obstacle = addObstacle(scene, x, y, width, height);
+
+    // Добавляем в список созданных препятствий для возможности удаления
+    createdObstacles.append(obstacle);
+
+    qDebug() << "Создано препятствие:" << x << y << width << height;
 }
 
 void MainWindow::setTargetPoint(const QPointF &point) {

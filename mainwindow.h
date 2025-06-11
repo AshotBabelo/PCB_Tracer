@@ -39,14 +39,18 @@ public:
 private slots:
     void toggleMode();
     void toggleTargetMode();
+    void toggleObstacleMode();
     void clearAllRays();
     void toggleRedLinesVisibility();
     void onSceneClicked(const QPointF &point, Qt::MouseButton button);
     void performOptimization();
+    void onMouseMoved(const QPointF &point);
 
 private:
     void updateModeButtonText();
     void updateTargetButtonText();
+    void updateObstacleButtonText();
+    void createObstacle(const QPointF &startPoint, const QPointF &endPoint);
     void setTargetPoint(const QPointF &point);
     void addTestComponents(const QString& filename);
     bool intersectRayWithExistingTraces(const QPointF &rayStart, const QVector2D &direction,
@@ -66,6 +70,7 @@ private:
     QPushButton *clearAllButton;
     QPushButton *toggleModeButton;
     QPushButton *setTargetButton;
+    QPushButton *createObstacleButton;
 
     // Хранение всех наборов лучей
     QList<RaySet> allRaySets;
@@ -75,6 +80,12 @@ private:
     bool redLinesVisible;
     bool addMode;
     bool targetMode;
+    bool obstacleMode;
+
+    //Точка начала создания препятствия
+    QPointF obstacleStartPoint;
+    QGraphicsRectItem* tempObstacleRect = nullptr;
+    QList<QGraphicsRectItem*> createdObstacles;
 };
 
 #endif // MAINWINDOW_H

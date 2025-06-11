@@ -42,13 +42,15 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         "toggleMode",
         "",
         "toggleTargetMode",
+        "toggleObstacleMode",
         "clearAllRays",
         "toggleRedLinesVisibility",
         "onSceneClicked",
         "point",
         "Qt::MouseButton",
         "button",
-        "performOptimization"
+        "performOptimization",
+        "onMouseMoved"
     };
 
     QtMocHelpers::UintData qt_methods {
@@ -56,16 +58,22 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         QtMocHelpers::SlotData<void()>(1, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'toggleTargetMode'
         QtMocHelpers::SlotData<void()>(3, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'clearAllRays'
+        // Slot 'toggleObstacleMode'
         QtMocHelpers::SlotData<void()>(4, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'toggleRedLinesVisibility'
+        // Slot 'clearAllRays'
         QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'toggleRedLinesVisibility'
+        QtMocHelpers::SlotData<void()>(6, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onSceneClicked'
-        QtMocHelpers::SlotData<void(const QPointF &, Qt::MouseButton)>(6, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QPointF, 7 }, { 0x80000000 | 8, 9 },
+        QtMocHelpers::SlotData<void(const QPointF &, Qt::MouseButton)>(7, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QPointF, 8 }, { 0x80000000 | 9, 10 },
         }}),
         // Slot 'performOptimization'
-        QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(11, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onMouseMoved'
+        QtMocHelpers::SlotData<void(const QPointF &)>(12, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QPointF, 8 },
+        }}),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -91,10 +99,12 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         switch (_id) {
         case 0: _t->toggleMode(); break;
         case 1: _t->toggleTargetMode(); break;
-        case 2: _t->clearAllRays(); break;
-        case 3: _t->toggleRedLinesVisibility(); break;
-        case 4: _t->onSceneClicked((*reinterpret_cast< std::add_pointer_t<QPointF>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<Qt::MouseButton>>(_a[2]))); break;
-        case 5: _t->performOptimization(); break;
+        case 2: _t->toggleObstacleMode(); break;
+        case 3: _t->clearAllRays(); break;
+        case 4: _t->toggleRedLinesVisibility(); break;
+        case 5: _t->onSceneClicked((*reinterpret_cast< std::add_pointer_t<QPointF>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<Qt::MouseButton>>(_a[2]))); break;
+        case 6: _t->performOptimization(); break;
+        case 7: _t->onMouseMoved((*reinterpret_cast< std::add_pointer_t<QPointF>>(_a[1]))); break;
         default: ;
         }
     }
@@ -119,14 +129,14 @@ int MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 6)
+        if (_id < 8)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 6;
+        _id -= 8;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 6)
+        if (_id < 8)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 6;
+        _id -= 8;
     }
     return _id;
 }
