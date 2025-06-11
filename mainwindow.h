@@ -37,23 +37,24 @@ public:
     };
 
 private slots:
-    void onSceneClicked(const QPointF &point, Qt::MouseButton button);
-    void toggleRedLinesVisibility();
-    void performOptimization();
-    void clearAllRays();
     void toggleMode();
+    void toggleTargetMode();
+    void clearAllRays();
+    void toggleRedLinesVisibility();
+    void onSceneClicked(const QPointF &point, Qt::MouseButton button);
+    void performOptimization();
 
 private:
-    void addTestComponents();
-    void launchRayTracing(const QPointF &start, double angleDeg, int maxBounces, RaySet& raySet);
-    QList<TraceVertex> getVerticesFromTrace(const QList<QGraphicsLineItem*>& trace);
-    bool isDirectPathClear(const QPointF& start, const QPointF& end);
-    QList<QLineF> optimizeTraceSegments(const QList<QGraphicsLineItem*>& originalTrace);
     void updateModeButtonText();
-
+    void updateTargetButtonText();
+    void setTargetPoint(const QPointF &point);
+    void addTestComponents(const QString& filename);
     bool intersectRayWithExistingTraces(const QPointF &rayStart, const QVector2D &direction,
                                         double rayLength, QPointF &intersectionPoint,
                                         QVector2D &reflectionNormal, double &distance);
+    void launchRayTracing(const QPointF &start, double angleDeg, int maxBounces, RaySet& raySet);
+    bool isDirectPathClear(const QPointF& start, const QPointF& end);
+    QList<QLineF> optimizeTraceSegments(const QList<QGraphicsLineItem*>& originalTrace);
 
     QGraphicsScene *scene;
     CustomGraphicsView *view;
@@ -64,6 +65,7 @@ private:
     QPushButton *optimizeButton;
     QPushButton *clearAllButton;
     QPushButton *toggleModeButton;
+    QPushButton *setTargetButton;
 
     // Хранение всех наборов лучей
     QList<RaySet> allRaySets;
@@ -71,7 +73,8 @@ private:
 
     // Состояние видимости и режима
     bool redLinesVisible;
-    bool addMode;  // true = добавление лучей, false = замена лучей
+    bool addMode;
+    bool targetMode;
 };
 
 #endif // MAINWINDOW_H
