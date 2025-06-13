@@ -547,6 +547,15 @@ release/moc_mainwindow.cpp: mainwindow.h \
 		C:/Qt/6.9.0/mingw_64/include/QtCore/QLineF \
 		C:/Qt/6.9.0/mingw_64/include/QtCore/QDebug \
 		C:/Qt/6.9.0/mingw_64/include/QtGui/QMouseEvent \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/QLabel \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/qlabel.h \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/qpicture.h \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/qtextdocument.h \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/QMenu \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/qmenu.h \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/QAction \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/QActionGroup \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/qactiongroup.h \
 		customgraphicsview.h \
 		release/moc_predefs.h \
 		C:/Qt/6.9.0/mingw_64/bin/moc.exe
@@ -1006,6 +1015,15 @@ release/main.o: main.cpp mainwindow.h \
 		C:/Qt/6.9.0/mingw_64/include/QtCore/QLineF \
 		C:/Qt/6.9.0/mingw_64/include/QtCore/QDebug \
 		C:/Qt/6.9.0/mingw_64/include/QtGui/QMouseEvent \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/QLabel \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/qlabel.h \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/qpicture.h \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/qtextdocument.h \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/QMenu \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/qmenu.h \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/QAction \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/QActionGroup \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/qactiongroup.h \
 		customgraphicsview.h \
 		C:/Qt/6.9.0/mingw_64/include/QtWidgets/QApplication \
 		C:/Qt/6.9.0/mingw_64/include/QtWidgets/qapplication.h \
@@ -1233,6 +1251,15 @@ release/mainwindow.o: mainwindow.cpp mainwindow.h \
 		C:/Qt/6.9.0/mingw_64/include/QtCore/QLineF \
 		C:/Qt/6.9.0/mingw_64/include/QtCore/QDebug \
 		C:/Qt/6.9.0/mingw_64/include/QtGui/QMouseEvent \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/QLabel \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/qlabel.h \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/qpicture.h \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/qtextdocument.h \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/QMenu \
+		C:/Qt/6.9.0/mingw_64/include/QtWidgets/qmenu.h \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/QAction \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/QActionGroup \
+		C:/Qt/6.9.0/mingw_64/include/QtGui/qactiongroup.h \
 		customgraphicsview.h \
 		C:/Qt/6.9.0/mingw_64/include/QtWidgets/QGraphicsRectItem \
 		C:/Qt/6.9.0/mingw_64/include/QtCore/QtMath \

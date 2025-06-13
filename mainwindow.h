@@ -40,6 +40,16 @@ public:
         RaySet() : bestBlueLength(std::numeric_limits<qreal>::max()) {}
     };
 
+
+    struct IntersectionResult {
+        bool hasIntersection = false;
+        QPointF point;
+        QVector2D normal;
+        double distance = std::numeric_limits<double>::max();
+        QGraphicsItem* item = nullptr;
+    };
+
+
 private slots:
     void toggleTargetMode();
     void toggleObstacleMode();
@@ -63,9 +73,15 @@ private:
     bool intersectRayWithExistingTraces(const QPointF &rayStart, const QVector2D &direction,
                                         double rayLength, QPointF &intersectionPoint,
                                         QVector2D &reflectionNormal, double &distance);
-    void launchRayTracing(const QPointF &start, double angleDeg, int maxBounces, RaySet& raySet);
     bool isDirectPathClear(const QPointF& start, const QPointF& end);
     QList<QLineF> optimizeTraceSegments(const QList<QGraphicsLineItem*>& originalTrace);
+
+    void performSBR(const QPointF &start, RaySet& raySet);
+    QList<QLineF> traceRayWithBounces(const QPointF &start, double angleDeg, int maxBounces, bool& hitTarget);
+
+    IntersectionResult findClosestObstacleIntersection(
+        const QPointF& rayStart, const QVector2D& direction, double rayLength);
+
     QGraphicsScene *scene;
     CustomGraphicsView *view;
     QGraphicsEllipseItem *targetCircle;
@@ -94,7 +110,6 @@ private:
     //Переменные для создания препядствия
     QPointF obstacleStartPoint;
     QGraphicsRectItem* tempObstacleRect = nullptr;
-    QList<QGraphicsRectItem*> createdObstacles;
 };
 
 #endif // MAINWINDOW_H

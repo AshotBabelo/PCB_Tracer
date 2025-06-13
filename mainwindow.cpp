@@ -102,7 +102,31 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent) {
     updateStatusLabel();
 }
 
+bool intersectRayCircle(const QPointF &rayStart, const QVector2D &direction,
+                        const QPointF &circleCenter, double radius, double &t) {
+    QVector2D m = QVector2D(rayStart - circleCenter);
+    double b = QVector2D::dotProduct(m, direction);
+    double c = QVector2D::dotProduct(m, m) - radius*radius;
 
+    double discriminant = b*b - c;
+    if (discriminant < 0) {
+        return false;
+    }
+
+    double sqrtDisc = qSqrt(discriminant);
+    double t1 = -b - sqrtDisc;
+    double t2 = -b + sqrtDisc;
+
+    if (t1 >= 0) {
+        t = t1;
+        return true;
+    }
+    if (t2 >= 0) {
+        t = t2;
+        return true;
+    }
+    return false;
+}
 
 void MainWindow::toggleTargetMode() {
     if (!obstacleMode) {
@@ -256,12 +280,7 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
         newRaySet.startPoint = point;
         newRaySet.bestBlueLength = std::numeric_limits<qreal>::max();
 
-        int maxBounces = 15;
-        double angleStep = 5.0;
-
-        for (double angle = 0.0; angle < 360.0; angle += angleStep) {
-            launchRayTracing(point, angle, maxBounces, newRaySet);
-        }
+        performSBR(point, newRaySet);
 
         allRaySets.append(newRaySet);
 
@@ -277,128 +296,7 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
         toggleRedLinesButton->setText("Показать красные лучи");
     }
 }
-
-void MainWindow::onMouseMoved(const QPointF &point) {
-    if (obstacleMode && !obstacleStartPoint.isNull() && tempObstacleRect) {
-        // Обновляем размер временного прямоугольника
-        double x = qMin(obstacleStartPoint.x(), point.x());
-        double y = qMin(obstacleStartPoint.y(), point.y());
-        double width = qAbs(point.x() - obstacleStartPoint.x());
-        double height = qAbs(point.y() - obstacleStartPoint.y());
-
-        tempObstacleRect->setRect(0, 0, width, height);
-        tempObstacleRect->setPos(x, y);
-    }
-}
-
-void MainWindow::createObstacle(const QPointF &startPoint, const QPointF &endPoint) {
-    // Вычисляем параметры прямоугольника
-    double x = qMin(startPoint.x(), endPoint.x());
-    double y = qMin(startPoint.y(), endPoint.y());
-    double width = qAbs(endPoint.x() - startPoint.x());
-    double height = qAbs(endPoint.y() - startPoint.y());
-
-    // Минимальный размер препятствия
-    const double minSize = 10.0;
-    if (width < minSize) width = minSize;
-    if (height < minSize) height = minSize;
-
-    // Создаем новое препятствие
-    QGraphicsRectItem* obstacle = addObstacle(scene, x, y, width, height);
-
-    // Добавляем в список созданных препятствий для возможности удаления
-    createdObstacles.append(obstacle);
-
-    qDebug() << "Создано препятствие:" << x << y << width << height;
-}
-
-void MainWindow::setTargetPoint(const QPointF &point) {
-    // Удаляем старую целевую точку
-    if (targetCircle) {
-        scene->removeItem(targetCircle);
-        delete targetCircle;
-    }
-
-    // Создаем новую целевую точку
-    const double radius = 5.0;
-    targetCircle = new QGraphicsEllipseItem(-radius, -radius, 2*radius, 2*radius);
-    targetCircle->setBrush(Qt::green);
-    targetCircle->setPen(Qt::NoPen);
-    targetCircle->setPos(point);
-    scene->addItem(targetCircle);
-
-    // Очищаем все существующие трассы, так как цель изменилась
-    clearAllRays();
-}
-
-bool intersectRayCircle(const QPointF &rayStart, const QVector2D &direction,
-                        const QPointF &circleCenter, double radius, double &t) {
-    QVector2D m = QVector2D(rayStart - circleCenter);
-    double b = QVector2D::dotProduct(m, direction);
-    double c = QVector2D::dotProduct(m, m) - radius*radius;
-
-    double discriminant = b*b - c;
-    if (discriminant < 0) {
-        return false;
-    }
-
-    double sqrtDisc = qSqrt(discriminant);
-    double t1 = -b - sqrtDisc;
-    double t2 = -b + sqrtDisc;
-
-    if (t1 >= 0) {
-        t = t1;
-        return true;
-    }
-    if (t2 >= 0) {
-        t = t2;
-        return true;
-    }
-    return false;
-}
-
-bool MainWindow::intersectRayWithExistingTraces(const QPointF &rayStart, const QVector2D &direction,
-                                                double rayLength, QPointF &intersectionPoint,
-                                                QVector2D &reflectionNormal, double &distance) {
-    QLineF ray(rayStart, rayStart + direction.toPointF() * rayLength);
-    double minDistance = std::numeric_limits<double>::max();
-    bool foundIntersection = false;
-
-    const double epsilon = 1e-6;
-
-    for (const auto& raySet : allRaySets) {
-        for (const auto* traceLine : raySet.bestBlueRay) {
-            QLineF existingSegment = traceLine->line();
-            QPointF intersection;
-
-            if (ray.intersects(existingSegment, &intersection) == QLineF::BoundedIntersection) {
-                double dist = QLineF(rayStart, intersection).length();
-
-                if (dist > epsilon && dist < minDistance) {
-                    minDistance = dist;
-                    intersectionPoint = intersection;
-                    foundIntersection = true;
-
-                    QVector2D segmentDir = QVector2D(existingSegment.p2() - existingSegment.p1()).normalized();
-                    reflectionNormal = QVector2D(-segmentDir.y(), segmentDir.x());
-
-                    if (QVector2D::dotProduct(reflectionNormal, -direction) < 0) {
-                        reflectionNormal = -reflectionNormal;
-                    }
-                }
-            }
-        }
-    }
-
-    if (foundIntersection) {
-        distance = minDistance;
-        return true;
-    }
-
-    return false;
-}
-
-void MainWindow::launchRayTracing(const QPointF &start, double angleDeg, int maxBounces, RaySet& raySet) {
+QList<QLineF> MainWindow::traceRayWithBounces(const QPointF &start, double angleDeg, int maxBounces, bool& hitTarget) {
     QPointF currentPos = start;
     double angleRad = qDegreesToRadians(angleDeg);
     QVector2D direction(qCos(angleRad), qSin(angleRad));
@@ -408,8 +306,10 @@ void MainWindow::launchRayTracing(const QPointF &start, double angleDeg, int max
     const double rayLength = 1000;
     const double epsilon = 0.01;
 
-    QVector<QLineF> segments;
-    bool hitCircle = false;
+    QList<QLineF> segments;
+    hitTarget = false;
+
+    if (!targetCircle) return segments;
 
     QPointF circleCenter = targetCircle->sceneBoundingRect().center();
     double radius = targetCircle->rect().width() / 2;
@@ -469,7 +369,7 @@ void MainWindow::launchRayTracing(const QPointF &start, double angleDeg, int max
         if (circleHit && circleDistance == minDistance) {
             QPointF intersectPoint = currentPos + direction.toPointF() * tCircle;
             segments.append(QLineF(currentPos, intersectPoint));
-            hitCircle = true;
+            hitTarget = true;
             break;
         }
         else if (hitExistingTrace && traceDistanceValue == minDistance) {
@@ -492,42 +392,177 @@ void MainWindow::launchRayTracing(const QPointF &start, double angleDeg, int max
         }
     }
 
-    // Рисуем линии
-    if (hitCircle) {
-        qreal totalLength = 0;
-        for (const QLineF &seg : segments) {
-            totalLength += seg.length();
-        }
+    return segments;
+}
+void MainWindow::performSBR(const QPointF &start, RaySet &raySet) {
+    if (!targetCircle) return;
 
-        for (const QLineF &seg : segments) {
-            QGraphicsLineItem *line = scene->addLine(seg, QPen(Qt::blue, 2));
-            line->setVisible(false);
-            raySet.allBlueRays.append(line);
-        }
+    // Начальные параметры
+    double step = 5.0;
+    const double minStep = 0.2;
+    const int maxBounces = 15;
 
-        if (totalLength < raySet.bestBlueLength) {
-            for (QGraphicsLineItem *line : raySet.bestBlueRay) {
-                scene->removeItem(line);
-                delete line;
-            }
-            raySet.bestBlueRay.clear();
+    QSet<double> angles;
+    for (double angle = 0; angle < 360.0; angle += step) {
+        angles.insert(angle);
+    }
 
+    double bestLength = std::numeric_limits<double>::max();
+
+    while (step >= minStep) {
+        QSet<double> nextAngles;
+
+        for (double angle : angles) {
+            double normalized = fmod(angle + 360.0, 360.0);
+
+            bool hitTarget = false;
+            QList<QLineF> segments = traceRayWithBounces(start, normalized, maxBounces, hitTarget);
+
+            double totalLength = 0;
             for (const QLineF &seg : segments) {
-                QGraphicsLineItem *line = scene->addLine(seg, QPen(Qt::blue, 3));
-                line->setVisible(true);
-                raySet.bestBlueRay.append(line);
+                totalLength += seg.length();
             }
 
-            raySet.bestBlueLength = totalLength;
+            if (hitTarget) {
+                // Сохраняем все синие лучи (скрытые)
+                for (const QLineF &seg : segments) {
+                    QGraphicsLineItem *line = scene->addLine(seg, QPen(Qt::blue, 2));
+                    line->setVisible(false);
+                    raySet.allBlueRays.append(line);
+                }
+
+                // Если нашли лучший путь — сохраняем как лучший (толще и видимый)
+                if (totalLength < bestLength) {
+                    bestLength = totalLength;
+
+                    // Удаляем предыдущий лучший путь
+                    for (QGraphicsLineItem *line : raySet.bestBlueRay) {
+                        scene->removeItem(line);
+                        delete line;
+                    }
+                    raySet.bestBlueRay.clear();
+
+                    for (const QLineF &seg : segments) {
+                        QGraphicsLineItem *line = scene->addLine(seg, QPen(Qt::blue, 3));
+                        line->setVisible(true);
+                        raySet.bestBlueRay.append(line);
+                    }
+
+                    raySet.bestBlueLength = bestLength;
+                }
+
+                // Уточняем направления вокруг текущего
+                nextAngles.insert(fmod(normalized - step / 2 + 360.0, 360.0));
+                nextAngles.insert(fmod(normalized + step / 2, 360.0));
+            } else {
+                // Добавляем красные лучи для неуспешных трасс
+                for (const QLineF &seg : segments) {
+                    QGraphicsLineItem *line = scene->addLine(seg, QPen(Qt::red, step > 1.0 ? 2 : 1));
+                    line->setVisible(false);
+                    raySet.redLines.append(line);
+                }
+            }
         }
-    } else {
-        for (const QLineF &seg : segments) {
-            QGraphicsLineItem *line = scene->addLine(seg, QPen(Qt::red, 2));
-            line->setVisible(false);
-            raySet.redLines.append(line);
-        }
+
+        angles = nextAngles;
+        step /= 2.0;
     }
 }
+
+void MainWindow::onMouseMoved(const QPointF &point) {
+    if (obstacleMode && !obstacleStartPoint.isNull() && tempObstacleRect) {
+        // Обновляем размер временного прямоугольника
+        double x = qMin(obstacleStartPoint.x(), point.x());
+        double y = qMin(obstacleStartPoint.y(), point.y());
+        double width = qAbs(point.x() - obstacleStartPoint.x());
+        double height = qAbs(point.y() - obstacleStartPoint.y());
+
+        tempObstacleRect->setRect(0, 0, width, height);
+        tempObstacleRect->setPos(x, y);
+    }
+}
+
+void MainWindow::createObstacle(const QPointF &startPoint, const QPointF &endPoint) {
+    // Вычисляем параметры прямоугольника
+    double x = qMin(startPoint.x(), endPoint.x());
+    double y = qMin(startPoint.y(), endPoint.y());
+    double width = qAbs(endPoint.x() - startPoint.x());
+    double height = qAbs(endPoint.y() - startPoint.y());
+
+    // Минимальный размер препятствия
+    const double minSize = 10.0;
+    if (width < minSize) width = minSize;
+    if (height < minSize) height = minSize;
+
+    // Создаем новое препятствие
+    QGraphicsRectItem* obstacle = addObstacle(scene, x, y, width, height);
+
+
+
+    qDebug() << "Создано препятствие:" << x << y << width << height;
+}
+
+void MainWindow::setTargetPoint(const QPointF &point) {
+    // Удаляем старую целевую точку
+    if (targetCircle) {
+        scene->removeItem(targetCircle);
+        delete targetCircle;
+    }
+
+    // Создаем новую целевую точку
+    const double radius = 5.0;
+    targetCircle = new QGraphicsEllipseItem(-radius, -radius, 2*radius, 2*radius);
+    targetCircle->setBrush(Qt::green);
+    targetCircle->setPen(Qt::NoPen);
+    targetCircle->setPos(point);
+    scene->addItem(targetCircle);
+
+    // Очищаем все существующие трассы, так как цель изменилась
+    clearAllRays();
+}
+
+
+bool MainWindow::intersectRayWithExistingTraces(const QPointF &rayStart, const QVector2D &direction,
+                                                double rayLength, QPointF &intersectionPoint,
+                                                QVector2D &reflectionNormal, double &distance) {
+    QLineF ray(rayStart, rayStart + direction.toPointF() * rayLength);
+    double minDistance = std::numeric_limits<double>::max();
+    bool foundIntersection = false;
+
+    const double epsilon = 1e-6;
+
+    for (const auto& raySet : allRaySets) {
+        for (const auto* traceLine : raySet.bestBlueRay) {
+            QLineF existingSegment = traceLine->line();
+            QPointF intersection;
+
+            if (ray.intersects(existingSegment, &intersection) == QLineF::BoundedIntersection) {
+                double dist = QLineF(rayStart, intersection).length();
+
+                if (dist > epsilon && dist < minDistance) {
+                    minDistance = dist;
+                    intersectionPoint = intersection;
+                    foundIntersection = true;
+
+                    QVector2D segmentDir = QVector2D(existingSegment.p2() - existingSegment.p1()).normalized();
+                    reflectionNormal = QVector2D(-segmentDir.y(), segmentDir.x());
+
+                    if (QVector2D::dotProduct(reflectionNormal, -direction) < 0) {
+                        reflectionNormal = -reflectionNormal;
+                    }
+                }
+            }
+        }
+    }
+
+    if (foundIntersection) {
+        distance = minDistance;
+        return true;
+    }
+
+    return false;
+}
+
 
 bool MainWindow::isDirectPathClear(const QPointF& start, const QPointF& end) {
     QLineF testPath(start, end);
@@ -843,7 +878,7 @@ void MainWindow::addTestComponents(const QString& filename) {
         }
     }
 
-    const double radius = 5.0;
+    const double radius = 15.0;
     targetCircle = new QGraphicsEllipseItem(-radius, -radius, 2*radius, 2*radius);
     targetCircle->setBrush(Qt::green);
     targetCircle->setPen(Qt::NoPen);
