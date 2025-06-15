@@ -6,21 +6,20 @@
 #include <QGraphicsView>
 #include <QGraphicsEllipseItem>
 #include <QGraphicsLineItem>
-#include <QPushButton>
 #include <QPointF>
 #include <QList>
 #include <QLineF>
 #include <QDebug>
 #include <QMouseEvent>
-#include <QLabel>
-#include <QMenu>
-#include <QAction>
-#include <QActionGroup>
 #include "customgraphicsview.h"
+#include "ui.h"
+
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
+
+    friend class UI;
 public:
     MainWindow(QWidget *parent = nullptr);
 
@@ -49,24 +48,27 @@ public:
         QGraphicsItem* item = nullptr;
     };
 
+    bool isInTargetMode() const { return targetMode; }
+    bool isInObstacleMode() const { return obstacleMode; }
+    bool isInAddMode() const { return addMode; }
+    void setAddMode() { addMode = true; }
+    void setReplaceMode() { addMode = false; }
 
 private slots:
     void toggleTargetMode();
     void toggleObstacleMode();
     void clearAllRays();
-    void toggleRedLinesVisibility();
+    void toggleLinesVisibility();
     void onSceneClicked(const QPointF &point, Qt::MouseButton button);
     void performOptimization();
     void onMouseMoved(const QPointF &point);
 
-    void setAddMode();
-    void setReplaceMode();
-    void showTracingModeMenu();
-
 private:
+
+    UI* m_uiManager;
+
     void updateStatusLabel();
-    void updateTargetButtonText();
-    void updateObstacleButtonText();
+
     void createObstacle(const QPointF &startPoint, const QPointF &endPoint);
     void setTargetPoint(const QPointF &point);
     void addTestComponents(const QString& filename);
@@ -86,18 +88,6 @@ private:
     CustomGraphicsView *view;
     QGraphicsEllipseItem *targetCircle;
 
-    // Кнопки управления
-    QPushButton *toggleRedLinesButton;
-    QPushButton *optimizeButton;
-    QPushButton *clearAllButton;
-    QPushButton *setTargetButton;
-    QPushButton *createObstacleButton;
-
-    QLabel* statusLabel;          // Информативное поле с текущим режимом
-    QMenu* tracingModeMenu;       // Всплывающее меню для режимов трассировки
-    QAction* addModeAction;       // Действие для режима добавления
-    QAction* replaceModeAction;
-
     // Хранение всех наборов лучей
     QList<RaySet> allRaySets;
 
@@ -111,5 +101,6 @@ private:
     QPointF obstacleStartPoint;
     QGraphicsRectItem* tempObstacleRect = nullptr;
 };
+
 
 #endif // MAINWINDOW_H

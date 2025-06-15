@@ -7,11 +7,13 @@ CONFIG += c++17
 SOURCES += \
     customgraphicsview.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    ui.cpp
 
 HEADERS += \
     customgraphicsview.h \
-    mainwindow.h
+    mainwindow.h \
+    ui.h
 
 FORMS += \
     mainwindow.ui

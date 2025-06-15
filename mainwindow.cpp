@@ -32,107 +32,21 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent) {
     connect(view, &CustomGraphicsView::mouseMoved, this, &MainWindow::onMouseMoved);
     addTestComponents(QCoreApplication::applicationDirPath() + "/obstacles.txt");
 
-    // Создаем информативное поле с текущим режимом
-    statusLabel = new QLabel("Режим: Добавление трасс", this);
-    statusLabel->setGeometry(20, 20, 250, 30);
-    statusLabel->setStyleSheet(
-        "QLabel {"
-        "    background-color: #f0f0f0;"
-        "    border: 2px solid #cccccc;"
-        "    border-radius: 5px;"
-        "    padding: 5px;"
-        "    font-weight: bold;"
-        "    color: #333333;"
-        "}"
-        );
-
-    // Создаем всплывающее меню для режимов трассировки
-    tracingModeMenu = new QMenu("Режимы трассировки", this);
-
-    addModeAction = new QAction("Режим добавления", this);
-    addModeAction->setCheckable(true);
-    addModeAction->setChecked(true);
-    connect(addModeAction, &QAction::triggered, this, &MainWindow::setAddMode);
-
-    replaceModeAction = new QAction("Режим замены", this);
-    replaceModeAction->setCheckable(true);
-    replaceModeAction->setChecked(false);
-    connect(replaceModeAction, &QAction::triggered, this, &MainWindow::setReplaceMode);
-
-    // Создаем группу действий для взаимоисключающего выбора
-    QActionGroup* modeGroup = new QActionGroup(this);
-    modeGroup->addAction(addModeAction);
-    modeGroup->addAction(replaceModeAction);
-
-    tracingModeMenu->addAction(addModeAction);
-    tracingModeMenu->addAction(replaceModeAction);
-
-    // Кнопки управления (обновляем позиции)
-    toggleRedLinesButton = new QPushButton("Скрыть красные лучи", this);
-    toggleRedLinesButton->setGeometry(300, 20, 180, 30);
-    connect(toggleRedLinesButton, &QPushButton::clicked, this, &MainWindow::toggleRedLinesVisibility);
-
-    optimizeButton = new QPushButton("Оптимизировать трассу", this);
-    optimizeButton->setGeometry(300, 60, 180, 30);
-    connect(optimizeButton, &QPushButton::clicked, this, &MainWindow::performOptimization);
-
-    clearAllButton = new QPushButton("Очистить все лучи", this);
-    clearAllButton->setGeometry(500, 20, 180, 30);
-    connect(clearAllButton, &QPushButton::clicked, this, &MainWindow::clearAllRays);
-
-    // Кнопка для вызова меню режимов трассировки
-    QPushButton* tracingModeButton = new QPushButton("Режимы трассировки", this);
-    tracingModeButton->setGeometry(500, 60, 180, 30);
-    connect(tracingModeButton, &QPushButton::clicked, this, &MainWindow::showTracingModeMenu);
-
-    // Новая кнопка для задания конечной точки
-    setTargetButton = new QPushButton("Задать конечную точку", this);
-    setTargetButton->setGeometry(700, 20, 180, 30);
-    connect(setTargetButton, &QPushButton::clicked, this, &MainWindow::toggleTargetMode);
-
-    // Новая кнопка для создания препятствий
-    createObstacleButton = new QPushButton("Создать препятствие", this);
-    createObstacleButton->setGeometry(700, 60, 180, 30);
-    connect(createObstacleButton, &QPushButton::clicked, this, &MainWindow::toggleObstacleMode);
+    m_uiManager = new UI(this);
+    m_uiManager->setupUI();
 
     addMode = true;
     targetMode = false;
     obstacleMode = false;
     obstacleStartPoint = QPointF();
-    updateStatusLabel();
-}
-
-bool intersectRayCircle(const QPointF &rayStart, const QVector2D &direction,
-                        const QPointF &circleCenter, double radius, double &t) {
-    QVector2D m = QVector2D(rayStart - circleCenter);
-    double b = QVector2D::dotProduct(m, direction);
-    double c = QVector2D::dotProduct(m, m) - radius*radius;
-
-    double discriminant = b*b - c;
-    if (discriminant < 0) {
-        return false;
-    }
-
-    double sqrtDisc = qSqrt(discriminant);
-    double t1 = -b - sqrtDisc;
-    double t2 = -b + sqrtDisc;
-
-    if (t1 >= 0) {
-        t = t1;
-        return true;
-    }
-    if (t2 >= 0) {
-        t = t2;
-        return true;
-    }
-    return false;
+    m_uiManager->updateStatusLabel();
 }
 
 void MainWindow::toggleTargetMode() {
     if (!obstacleMode) {
         targetMode = !targetMode;
-        updateTargetButtonText();
-        updateStatusLabel();
+        m_uiManager->setTargetButtonText(targetMode);
+        m_uiManager->updateStatusLabel();
 
         if (targetMode) {
             view->setCursor(Qt::CrossCursor);
@@ -145,8 +59,9 @@ void MainWindow::toggleTargetMode() {
 void MainWindow::toggleObstacleMode() {
     if (!targetMode) {
         obstacleMode = !obstacleMode;
-        updateObstacleButtonText();
-        updateStatusLabel();
+        // Обновляем кнопку через UIManager
+        m_uiManager->setObstacleButtonText(obstacleMode);
+        m_uiManager->updateStatusLabel();
 
         if (obstacleMode) {
             view->setCursor(Qt::CrossCursor);
@@ -162,43 +77,6 @@ void MainWindow::toggleObstacleMode() {
     }
 }
 
-void MainWindow::setAddMode() {
-    addMode = true;
-    updateStatusLabel();
-}
-
-void MainWindow::setReplaceMode() {
-    addMode = false;
-    updateStatusLabel();
-}
-
-void MainWindow::showTracingModeMenu() {
-    QPushButton* button = qobject_cast<QPushButton*>(sender());
-    if (button) {
-        QPoint menuPos = button->mapToGlobal(QPoint(0, button->height()));
-        tracingModeMenu->exec(menuPos);
-    }
-}
-
-void MainWindow::updateStatusLabel() {
-    QString statusText;
-    if (targetMode) {
-        statusText = "Режим: Задание конечной точки";
-    } else if (obstacleMode) {
-        statusText = "Режим: Создание препятствий";
-    } else {
-        statusText = addMode ? "Режим: Добавление трасс" : "Режим: Замена трасс";
-    }
-    statusLabel->setText(statusText);
-}
-
-void MainWindow::updateTargetButtonText() {
-    setTargetButton->setText(targetMode ? "Отменить задание цели" : "Задать конечную точку");
-}
-void MainWindow::updateObstacleButtonText() {
-    createObstacleButton->setText(obstacleMode ? "Отменить создание" : "Создать препятствие");
-}
-
 void MainWindow::clearAllRays() {
     for (auto& raySet : allRaySets) {
         qDeleteAll(raySet.redLines);
@@ -211,7 +89,14 @@ void MainWindow::clearAllRays() {
     allRaySets.clear();
 }
 
-void MainWindow::toggleRedLinesVisibility() {
+
+void MainWindow::updateStatusLabel() {
+    if (m_uiManager) {
+        m_uiManager->updateStatusLabel();
+    }
+}
+
+void MainWindow::toggleLinesVisibility() {
     redLinesVisible = !redLinesVisible;
 
     for (auto& raySet : allRaySets) {
@@ -223,7 +108,9 @@ void MainWindow::toggleRedLinesVisibility() {
         }
     }
 
-    toggleRedLinesButton->setText(redLinesVisible ? "Скрыть красные лучи" : "Показать красные лучи");
+    if (m_uiManager) {
+        m_uiManager->setRedLinesVisibility(redLinesVisible);
+    }
 }
 
 void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
@@ -232,8 +119,8 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
             // Режим задания конечной точки
             setTargetPoint(point);
             targetMode = false;
-            updateTargetButtonText();
-            updateStatusLabel();
+            m_uiManager->setTargetButtonText(targetMode);
+            m_uiManager->updateStatusLabel();
             view->setCursor(Qt::ArrowCursor);
             return;
         }
@@ -264,8 +151,8 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
                 // Выходим из режима создания препятствий
                 obstacleMode = false;
                 obstacleStartPoint = QPointF();
-                updateObstacleButtonText();
-                updateStatusLabel();
+                m_uiManager->setObstacleButtonText(obstacleMode);
+                m_uiManager->updateStatusLabel();
                 view->setCursor(Qt::ArrowCursor);
             }
             return;
@@ -293,9 +180,49 @@ void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
         }
 
         redLinesVisible = false;
-        toggleRedLinesButton->setText("Показать красные лучи");
+        m_uiManager->setRedLinesVisibility(redLinesVisible);
     }
 }
+
+void MainWindow::onMouseMoved(const QPointF &point) {
+    if (obstacleMode && !obstacleStartPoint.isNull() && tempObstacleRect) {
+        // Обновляем размер временного прямоугольника
+        double x = qMin(obstacleStartPoint.x(), point.x());
+        double y = qMin(obstacleStartPoint.y(), point.y());
+        double width = qAbs(point.x() - obstacleStartPoint.x());
+        double height = qAbs(point.y() - obstacleStartPoint.y());
+
+        tempObstacleRect->setRect(0, 0, width, height);
+        tempObstacleRect->setPos(x, y);
+    }
+}
+
+bool intersectRayCircle(const QPointF &rayStart, const QVector2D &direction,
+                        const QPointF &circleCenter, double radius, double &t) {
+    QVector2D m = QVector2D(rayStart - circleCenter);
+    double b = QVector2D::dotProduct(m, direction);
+    double c = QVector2D::dotProduct(m, m) - radius*radius;
+
+    double discriminant = b*b - c;
+    if (discriminant < 0) {
+        return false;
+    }
+
+    double sqrtDisc = qSqrt(discriminant);
+    double t1 = -b - sqrtDisc;
+    double t2 = -b + sqrtDisc;
+
+    if (t1 >= 0) {
+        t = t1;
+        return true;
+    }
+    if (t2 >= 0) {
+        t = t2;
+        return true;
+    }
+    return false;
+}
+
 QList<QLineF> MainWindow::traceRayWithBounces(const QPointF &start, double angleDeg, int maxBounces, bool& hitTarget) {
     QPointF currentPos = start;
     double angleRad = qDegreesToRadians(angleDeg);
@@ -394,6 +321,7 @@ QList<QLineF> MainWindow::traceRayWithBounces(const QPointF &start, double angle
 
     return segments;
 }
+
 void MainWindow::performSBR(const QPointF &start, RaySet &raySet) {
     if (!targetCircle) return;
 
@@ -466,19 +394,6 @@ void MainWindow::performSBR(const QPointF &start, RaySet &raySet) {
 
         angles = nextAngles;
         step /= 2.0;
-    }
-}
-
-void MainWindow::onMouseMoved(const QPointF &point) {
-    if (obstacleMode && !obstacleStartPoint.isNull() && tempObstacleRect) {
-        // Обновляем размер временного прямоугольника
-        double x = qMin(obstacleStartPoint.x(), point.x());
-        double y = qMin(obstacleStartPoint.y(), point.y());
-        double width = qAbs(point.x() - obstacleStartPoint.x());
-        double height = qAbs(point.y() - obstacleStartPoint.y());
-
-        tempObstacleRect->setRect(0, 0, width, height);
-        tempObstacleRect->setPos(x, y);
     }
 }
 
