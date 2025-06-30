@@ -6,7 +6,7 @@
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
 
-#include "../customgraphicsview.h"
+#include "../../../../Downloads/PCB_Tracer-main/customgraphicsview.h"
 #include <QtCore/qmetatype.h>
 
 #include <QtCore/qtmochelpers.h>

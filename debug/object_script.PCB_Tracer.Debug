@@ -1,0 +1,11 @@
+debug/customgraphicsview.o
+debug/main.o
+debug/mainwindow.o
+debug/mod.o
+debug/sbrtrace.o
+debug/ui.o
+debug/moc_customgraphicsview.o
+debug/moc_mainwindow.o
+debug/moc_mod.o
+debug/moc_sbrtrace.o
+debug/moc_ui.o

@@ -19,7 +19,7 @@ QGraphicsRectItem* addObstacle(QGraphicsScene* scene, double x, double y, double
 }
 
 MainWindow::MainWindow(QWidget *parent): QMainWindow(parent) {
-    setWindowTitle("PCB Designer");
+    setWindowTitle("PCB Tracer");
     resize(900, 700);
 
     // Создаем сцену и view
@@ -31,170 +31,75 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent) {
     connect(view, &CustomGraphicsView::pointClicked, this, &MainWindow::onSceneClicked);
     connect(view, &CustomGraphicsView::mouseMoved, this, &MainWindow::onMouseMoved);
     addTestComponents(QCoreApplication::applicationDirPath() + "/obstacles.txt");
+    qDebug() << QCoreApplication::applicationDirPath() + "/obstacles.txt";
+    // Создаем информативное поле с текущим режимом
+    statusLabel = new QLabel("Режим: Добавление трасс", this);
+    statusLabel->setGeometry(20, 20, 250, 30);
+    statusLabel->setStyleSheet(
+        "QLabel {"
+        "    background-color: #f0f0f0;"
+        "    border: 2px solid #cccccc;"
+        "    border-radius: 5px;"
+        "    padding: 5px;"
+        "    font-weight: bold;"
+        "    color: #333333;"
+        "}"
+        );
 
-    m_uiManager = new UI(this);
-    m_uiManager->setupUI();
+    // Создаем всплывающее меню для режимов трассировки
+    tracingModeMenu = new QMenu("Режимы трассировки", this);
+
+    addModeAction = new QAction("Режим добавления", this);
+    addModeAction->setCheckable(true);
+    addModeAction->setChecked(true);
+    connect(addModeAction, &QAction::triggered, this, &MainWindow::setAddMode);
+
+    replaceModeAction = new QAction("Режим замены", this);
+    replaceModeAction->setCheckable(true);
+    replaceModeAction->setChecked(false);
+    connect(replaceModeAction, &QAction::triggered, this, &MainWindow::setReplaceMode);
+
+    // Создаем группу действий для взаимоисключающего выбора
+    QActionGroup* modeGroup = new QActionGroup(this);
+    modeGroup->addAction(addModeAction);
+    modeGroup->addAction(replaceModeAction);
+
+    tracingModeMenu->addAction(addModeAction);
+    tracingModeMenu->addAction(replaceModeAction);
+
+    // Кнопки управления (обновляем позиции)
+    toggleRedLinesButton = new QPushButton("Скрыть красные лучи", this);
+    toggleRedLinesButton->setGeometry(300, 20, 180, 30);
+    connect(toggleRedLinesButton, &QPushButton::clicked, this, &MainWindow::toggleRedLinesVisibility);
+
+    optimizeButton = new QPushButton("Оптимизировать трассы", this);
+    optimizeButton->setGeometry(300, 60, 180, 30);
+    connect(optimizeButton, &QPushButton::clicked, this, &MainWindow::performOptimization);
+
+    clearAllButton = new QPushButton("Удалить трассы", this);
+    clearAllButton->setGeometry(500, 20, 180, 30);
+    connect(clearAllButton, &QPushButton::clicked, this, &MainWindow::clearAllRays);
+
+    // Кнопка для вызова меню режимов трассировки
+    QPushButton* tracingModeButton = new QPushButton("Режимы трассировки", this);
+    tracingModeButton->setGeometry(500, 60, 180, 30);
+    connect(tracingModeButton, &QPushButton::clicked, this, &MainWindow::showTracingModeMenu);
+
+    // Новая кнопка для задания конечной точки
+    setTargetButton = new QPushButton("Задать конечную точку", this);
+    setTargetButton->setGeometry(700, 20, 180, 30);
+    connect(setTargetButton, &QPushButton::clicked, this, &MainWindow::toggleTargetMode);
+
+    // Новая кнопка для создания препятствий
+    createObstacleButton = new QPushButton("Создать препятствие", this);
+    createObstacleButton->setGeometry(700, 60, 180, 30);
+    connect(createObstacleButton, &QPushButton::clicked, this, &MainWindow::toggleObstacleMode);
 
     addMode = true;
     targetMode = false;
     obstacleMode = false;
     obstacleStartPoint = QPointF();
-    m_uiManager->updateStatusLabel();
-}
-
-void MainWindow::toggleTargetMode() {
-    if (!obstacleMode) {
-        targetMode = !targetMode;
-        m_uiManager->setTargetButtonText(targetMode);
-        m_uiManager->updateStatusLabel();
-
-        if (targetMode) {
-            view->setCursor(Qt::CrossCursor);
-        } else {
-            view->setCursor(Qt::ArrowCursor);
-        }
-    }
-}
-
-void MainWindow::toggleObstacleMode() {
-    if (!targetMode) {
-        obstacleMode = !obstacleMode;
-        // Обновляем кнопку через UIManager
-        m_uiManager->setObstacleButtonText(obstacleMode);
-        m_uiManager->updateStatusLabel();
-
-        if (obstacleMode) {
-            view->setCursor(Qt::CrossCursor);
-            obstacleStartPoint = QPointF();
-        } else {
-            view->setCursor(Qt::ArrowCursor);
-            if (tempObstacleRect) {
-                scene->removeItem(tempObstacleRect);
-                delete tempObstacleRect;
-                tempObstacleRect = nullptr;
-            }
-        }
-    }
-}
-
-void MainWindow::clearAllRays() {
-    for (auto& raySet : allRaySets) {
-        qDeleteAll(raySet.redLines);
-        raySet.redLines.clear();
-        qDeleteAll(raySet.allBlueRays);
-        raySet.allBlueRays.clear();
-        qDeleteAll(raySet.bestBlueRay);
-        raySet.bestBlueRay.clear();
-    }
-    allRaySets.clear();
-}
-
-
-void MainWindow::updateStatusLabel() {
-    if (m_uiManager) {
-        m_uiManager->updateStatusLabel();
-    }
-}
-
-void MainWindow::toggleLinesVisibility() {
-    redLinesVisible = !redLinesVisible;
-
-    for (auto& raySet : allRaySets) {
-        for (QGraphicsLineItem *line : raySet.redLines) {
-            line->setVisible(redLinesVisible);
-        }
-        for (QGraphicsLineItem *line : raySet.allBlueRays) {
-            line->setVisible(redLinesVisible);
-        }
-    }
-
-    if (m_uiManager) {
-        m_uiManager->setRedLinesVisibility(redLinesVisible);
-    }
-}
-
-void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
-    if (button == Qt::LeftButton) {
-        if (targetMode) {
-            // Режим задания конечной точки
-            setTargetPoint(point);
-            targetMode = false;
-            m_uiManager->setTargetButtonText(targetMode);
-            m_uiManager->updateStatusLabel();
-            view->setCursor(Qt::ArrowCursor);
-            return;
-        }
-
-        if (obstacleMode) {
-            // Режим создания препятствий
-            if (obstacleStartPoint.isNull()) {
-                // Первый клик - задаем начальную точку
-                obstacleStartPoint = point;
-
-                // Создаем временный прямоугольник размером 1x1 пиксель
-                tempObstacleRect = new QGraphicsRectItem(0, 0, 1, 1);
-                tempObstacleRect->setPos(point);
-                tempObstacleRect->setBrush(QBrush(Qt::gray, Qt::DiagCrossPattern)); // Паттерн для отличия от готовых препятствий
-                tempObstacleRect->setPen(QPen(Qt::darkGray, 2, Qt::DashLine));
-                scene->addItem(tempObstacleRect);
-            } else {
-                // Второй клик - создаем препятствие
-                createObstacle(obstacleStartPoint, point);
-
-                // Удаляем временный прямоугольник
-                if (tempObstacleRect) {
-                    scene->removeItem(tempObstacleRect);
-                    delete tempObstacleRect;
-                    tempObstacleRect = nullptr;
-                }
-
-                // Выходим из режима создания препятствий
-                obstacleMode = false;
-                obstacleStartPoint = QPointF();
-                m_uiManager->setObstacleButtonText(obstacleMode);
-                m_uiManager->updateStatusLabel();
-                view->setCursor(Qt::ArrowCursor);
-            }
-            return;
-        }
-
-        // Обычный режим трассировки
-        if (!addMode) {
-            clearAllRays();
-        }
-
-        RaySet newRaySet;
-        newRaySet.startPoint = point;
-        newRaySet.bestBlueLength = std::numeric_limits<qreal>::max();
-
-        performSBR(point, newRaySet);
-
-        allRaySets.append(newRaySet);
-
-        // Скрываем красные лучи по умолчанию
-        for (QGraphicsLineItem *line : newRaySet.redLines) {
-            line->setVisible(false);
-        }
-        for (QGraphicsLineItem *line : newRaySet.allBlueRays) {
-            line->setVisible(false);
-        }
-
-        redLinesVisible = false;
-        m_uiManager->setRedLinesVisibility(redLinesVisible);
-    }
-}
-
-void MainWindow::onMouseMoved(const QPointF &point) {
-    if (obstacleMode && !obstacleStartPoint.isNull() && tempObstacleRect) {
-        // Обновляем размер временного прямоугольника
-        double x = qMin(obstacleStartPoint.x(), point.x());
-        double y = qMin(obstacleStartPoint.y(), point.y());
-        double width = qAbs(point.x() - obstacleStartPoint.x());
-        double height = qAbs(point.y() - obstacleStartPoint.y());
-
-        tempObstacleRect->setRect(0, 0, width, height);
-        tempObstacleRect->setPos(x, y);
-    }
+    updateStatusLabel();
 }
 
 bool intersectRayCircle(const QPointF &rayStart, const QVector2D &direction,
@@ -223,6 +128,172 @@ bool intersectRayCircle(const QPointF &rayStart, const QVector2D &direction,
     return false;
 }
 
+void MainWindow::toggleTargetMode() {
+    if (!obstacleMode) {
+        targetMode = !targetMode;
+        updateTargetButtonText();
+        updateStatusLabel();
+
+        if (targetMode) {
+            view->setCursor(Qt::CrossCursor);
+        } else {
+            view->setCursor(Qt::ArrowCursor);
+        }
+    }
+}
+
+void MainWindow::toggleObstacleMode() {
+    if (!targetMode) {
+        obstacleMode = !obstacleMode;
+        updateObstacleButtonText();
+        updateStatusLabel();
+
+        if (obstacleMode) {
+            view->setCursor(Qt::CrossCursor);
+            obstacleStartPoint = QPointF();
+        } else {
+            view->setCursor(Qt::ArrowCursor);
+            if (tempObstacleRect) {
+                scene->removeItem(tempObstacleRect);
+                delete tempObstacleRect;
+                tempObstacleRect = nullptr;
+            }
+        }
+    }
+}
+
+void MainWindow::setAddMode() {
+    addMode = true;
+    updateStatusLabel();
+}
+
+void MainWindow::setReplaceMode() {
+    addMode = false;
+    updateStatusLabel();
+}
+
+void MainWindow::showTracingModeMenu() {
+    QPushButton* button = qobject_cast<QPushButton*>(sender());
+    if (button) {
+        QPoint menuPos = button->mapToGlobal(QPoint(0, button->height()));
+        tracingModeMenu->exec(menuPos);
+    }
+}
+
+void MainWindow::updateStatusLabel() {
+    QString statusText;
+    if (targetMode) {
+        statusText = "Режим: Задание конечной точки";
+    } else if (obstacleMode) {
+        statusText = "Режим: Создание препятствий";
+    } else {
+        statusText = addMode ? "Режим: Добавление трасс" : "Режим: Замена трасс";
+    }
+    statusLabel->setText(statusText);
+}
+
+void MainWindow::updateTargetButtonText() {
+    setTargetButton->setText(targetMode ? "Отменить задание цели" : "Задать конечную точку");
+}
+void MainWindow::updateObstacleButtonText() {
+    createObstacleButton->setText(obstacleMode ? "Отменить создание" : "Создать препятствие");
+}
+
+void MainWindow::clearAllRays() {
+    for (auto& raySet : allRaySets) {
+        qDeleteAll(raySet.redLines);
+        raySet.redLines.clear();
+        qDeleteAll(raySet.allBlueRays);
+        raySet.allBlueRays.clear();
+        qDeleteAll(raySet.bestBlueRay);
+        raySet.bestBlueRay.clear();
+    }
+    allRaySets.clear();
+}
+
+void MainWindow::toggleRedLinesVisibility() {
+    redLinesVisible = !redLinesVisible;
+
+    for (auto& raySet : allRaySets) {
+        for (QGraphicsLineItem *line : raySet.redLines) {
+            line->setVisible(redLinesVisible);
+        }
+        for (QGraphicsLineItem *line : raySet.allBlueRays) {
+            line->setVisible(redLinesVisible);
+        }
+    }
+
+    toggleRedLinesButton->setText(redLinesVisible ? "Скрыть красные лучи" : "Показать красные лучи");
+}
+
+void MainWindow::onSceneClicked(const QPointF &point, Qt::MouseButton button) {
+    if (button == Qt::LeftButton) {
+        if (targetMode) {
+            // Режим задания конечной точки
+            setTargetPoint(point);
+            targetMode = false;
+            updateTargetButtonText();
+            updateStatusLabel();
+            view->setCursor(Qt::ArrowCursor);
+            return;
+        }
+
+        if (obstacleMode) {
+
+            if (obstacleStartPoint.isNull()) {
+                // Первый клик - задаем начальную точку
+                obstacleStartPoint = point;
+
+
+                tempObstacleRect = new QGraphicsRectItem(0, 0, 1, 1);
+                tempObstacleRect->setPos(point);
+                tempObstacleRect->setBrush(QBrush(Qt::gray, Qt::DiagCrossPattern)); // Паттерн для отличия от готовых препятствий
+                tempObstacleRect->setPen(QPen(Qt::darkGray, 2, Qt::DashLine));
+                scene->addItem(tempObstacleRect);
+            } else {
+                createObstacle(obstacleStartPoint, point);
+
+                if (tempObstacleRect) {
+                    scene->removeItem(tempObstacleRect);
+                    delete tempObstacleRect;
+                    tempObstacleRect = nullptr;
+                }
+
+                // Выходим из режима создания препятствий
+                obstacleMode = false;
+                obstacleStartPoint = QPointF();
+                updateObstacleButtonText();
+                updateStatusLabel();
+                view->setCursor(Qt::ArrowCursor);
+            }
+            return;
+        }
+
+        // Обычный режим трассировки
+        if (!addMode) {
+            clearAllRays();
+        }
+
+        RaySet newRaySet;
+        newRaySet.startPoint = point;
+        newRaySet.bestBlueLength = std::numeric_limits<qreal>::max();
+
+        performSBR(point, newRaySet);
+
+        allRaySets.append(newRaySet);
+
+        // Скрываем красные лучи по умолчанию
+        for (QGraphicsLineItem *line : newRaySet.redLines) {
+            line->setVisible(false);
+        }
+        for (QGraphicsLineItem *line : newRaySet.allBlueRays) {
+            line->setVisible(false);
+        }
+
+        redLinesVisible = false;
+        toggleRedLinesButton->setText("Показать красные лучи");
+    }
+}
 QList<QLineF> MainWindow::traceRayWithBounces(const QPointF &start, double angleDeg, int maxBounces, bool& hitTarget) {
     QPointF currentPos = start;
     double angleRad = qDegreesToRadians(angleDeg);
@@ -321,7 +392,6 @@ QList<QLineF> MainWindow::traceRayWithBounces(const QPointF &start, double angle
 
     return segments;
 }
-
 void MainWindow::performSBR(const QPointF &start, RaySet &raySet) {
     if (!targetCircle) return;
 
@@ -359,7 +429,7 @@ void MainWindow::performSBR(const QPointF &start, RaySet &raySet) {
                     raySet.allBlueRays.append(line);
                 }
 
-                // Если нашли лучший путь — сохраняем как лучший (толще и видимый)
+                // Если нашли лучший путь — сохраняем как лучший
                 if (totalLength < bestLength) {
                     bestLength = totalLength;
 
@@ -394,6 +464,19 @@ void MainWindow::performSBR(const QPointF &start, RaySet &raySet) {
 
         angles = nextAngles;
         step /= 2.0;
+    }
+}
+
+void MainWindow::onMouseMoved(const QPointF &point) {
+    if (obstacleMode && !obstacleStartPoint.isNull() && tempObstacleRect) {
+        // Обновляем размер временного прямоугольника
+        double x = qMin(obstacleStartPoint.x(), point.x());
+        double y = qMin(obstacleStartPoint.y(), point.y());
+        double width = qAbs(point.x() - obstacleStartPoint.x());
+        double height = qAbs(point.y() - obstacleStartPoint.y());
+
+        tempObstacleRect->setRect(0, 0, width, height);
+        tempObstacleRect->setPos(x, y);
     }
 }
 
@@ -542,10 +625,6 @@ QList<QLineF> MainWindow::optimizeTraceSegments(const QList<QGraphicsLineItem*>&
 
     if (segments.size() <= 1) return segments;
 
-    // ВАЖНО: сохраняем начальную и конечную точки
-    QPointF startPoint = segments.first().p1();
-    QPointF endPoint = segments.last().p2();
-
     bool optimizationMade = true;
     int maxIterations = 100;
     int iteration = 0;
@@ -555,165 +634,124 @@ QList<QLineF> MainWindow::optimizeTraceSegments(const QList<QGraphicsLineItem*>&
         optimizationMade = false;
         iteration++;
 
-        // Пересоздаем вершины на основе текущих сегментов
-        QList<TraceVertex> vertices;
-        for (int i = 0; i < segments.size() - 1; ++i) {
-            QPointF connectionPoint = segments[i].p2();
-            TraceVertex vertex;
-            vertex.point = connectionPoint;
-            vertex.segmentBefore = i;
-            vertex.segmentAfter = i + 1;
-            vertices.append(vertex);
-        }
+        for (int i = 0; i < segments.size() - 2; ++i) {
+            QPointF start = segments[i].p1();
+            QPointF end = segments[i + 2].p2();
 
-        // Для каждой вершины пытаемся найти оптимизацию
-        for (int v = 0; v < vertices.size(); ++v) {
-            TraceVertex vertex = vertices[v];
+            QLineF directLine(start, end);
+            double directLength = directLine.length();
+            double originalLength = segments[i].length() + segments[i + 1].length() + segments[i + 2].length();
 
-            // Получаем начальную и конечную точки сегментов до и после вершины
-            QPointF segmentBeforeStart = segments[vertex.segmentBefore].p1();
-            QPointF segmentAfterEnd = segments[vertex.segmentAfter].p2();
-
-            // Длины сегментов
-            double beforeLength = segments[vertex.segmentBefore].length();
-            double afterLength = segments[vertex.segmentAfter].length();
-
-            if (beforeLength < minSegmentLength * 2 || afterLength < minSegmentLength * 2) {
-                continue;
-            }
-
-            // Направления сегментов
-            QVector2D dirBefore = QVector2D(vertex.point - segmentBeforeStart).normalized();
-            QVector2D dirAfter = QVector2D(segmentAfterEnd - vertex.point).normalized();
-
-            bool foundBetterPath = false;
-            int maxSteps = 30;
-            QLineF bestDirectConnection;
-            QLineF bestModifiedBefore, bestModifiedAfter;
-            double bestDistBefore = 0, bestDistAfter = 0;
-
-            // Пробуем разные расстояния от концов сегментов к вершине отскока
-            for (int stepBefore = 0; stepBefore <= maxSteps && !foundBetterPath; ++stepBefore) {
-                double distFromStartBefore = beforeLength * stepBefore / maxSteps;
-
-                if (distFromStartBefore < minSegmentLength && stepBefore != 0) continue;
-                if (distFromStartBefore > beforeLength - minSegmentLength) continue;
-
-
-                QPointF pointOnBefore = segmentBeforeStart + dirBefore.toPointF() * distFromStartBefore;
-
-                for (int stepAfter = 0; stepAfter <= maxSteps; ++stepAfter) {
-                    double distFromVertexAfter = afterLength * stepAfter / maxSteps;
-
-                    if (distFromVertexAfter < minSegmentLength || distFromVertexAfter > afterLength - minSegmentLength)
-                        continue;
-
-                    QPointF pointOnAfter = vertex.point + dirAfter.toPointF() * distFromVertexAfter;
-
-                    // Проверяем, можно ли провести прямую линию между этими точками
-                    if (isDirectPathClear(pointOnBefore, pointOnAfter)) {
-                        // Нашли возможное соединение, сохраняем его
-                        bestDirectConnection = QLineF(pointOnBefore, pointOnAfter);
-                        bestModifiedBefore = QLineF(segmentBeforeStart, pointOnBefore);
-                        bestModifiedAfter = QLineF(pointOnAfter, segmentAfterEnd);
-                        bestDistBefore = distFromStartBefore;
-                        bestDistAfter = distFromVertexAfter;
-                        foundBetterPath = true;
-
-                        // Продолжаем поиск лучшего варианта (ближе к вершине отскока)
-                        // но не прерываем цикл, чтобы найти оптимальный вариант
-                    }
-                }
-            }
-
-            // Если нашли лучший путь, применяем оптимизацию
-            if (foundBetterPath) {
-                QList<QLineF> newSegments;
-
-                // Добавляем все сегменты до оптимизируемого
-                for (int i = 0; i < vertex.segmentBefore; ++i) {
-                    newSegments.append(segments[i]);
-                }
-
-                // Добавляем оптимизированные сегменты
-                newSegments.append(bestModifiedBefore);
-                newSegments.append(bestDirectConnection);
-                newSegments.append(bestModifiedAfter);
-
-                // Добавляем все сегменты после оптимизируемого
-                for (int i = vertex.segmentAfter + 1; i < segments.size(); ++i) {
-                    newSegments.append(segments[i]);
-                }
-
-                segments = newSegments;
-                bool localMergeMade = true;
-                while (localMergeMade) {
-                    localMergeMade = false;
-
-                    for (int i = 0; i < segments.size() - 2; ++i) {
-                        int maxMergeCount = 3;
-
-                        for (int count = 3; count <= maxMergeCount && i + count <= segments.size(); ++count) {
-                            QPointF start = segments[i].p1();
-                            QPointF end = segments[i + count - 1].p2();
-
-                            QLineF directLine(start, end);
-                            double directLength = directLine.length();
-
-                            double originalLength = 0.0;
-                            for (int k = 0; k < count; ++k) {
-                                originalLength += segments[i + k].length();
-                            }
-
-                            if (directLength + 0.01 < originalLength && isDirectPathClear(start, end)) {
-                                segments[i] = directLine;
-                                for (int k = 0; k < count - 1; ++k) {
-                                    segments.removeAt(i + 1);
-                                }
-
-                                qDebug() << "Внутри итерации объединено" << count << "сегментов в прямую от" << start << "до" << end;
-
-                                localMergeMade = true;
-                                break;
-                            }
-                        }
-
-                        if (localMergeMade) break;
-                    }
-                }
+            if (directLength + 0.01 < originalLength && isDirectPathClear(start, end)) {
+                segments[i] = directLine;
+                segments.removeAt(i + 1);
+                segments.removeAt(i + 1); // После первого удаления индекс сдвигается
                 optimizationMade = true;
-
-                qDebug() << "Оптимизация на итерации" << iteration
-                         << ": соединили точки на расстояниях" << bestDistBefore
-                         << "и" << bestDistAfter << "от вершины отскока";
-
-                break; // Выходим из обработки этой итерации, т.к. сегменты обновлены
+                qDebug() << "Слияние 3 сегментов на итерации" << iteration;
+                qDebug() << "Колво сегментов =" << segments.size();
+                break;
             }
         }
-    }
+        if (!optimizationMade) {
+            QList<TraceVertex> vertices;
+            for (int i = 0; i < segments.size() - 1; ++i) {
+                QPointF connectionPoint = segments[i].p2();
+                TraceVertex vertex;
+                vertex.point = connectionPoint;
+                vertex.segmentBefore = i;
+                vertex.segmentAfter = i + 1;
+                vertices.append(vertex);
+            }
 
+            // Для каждой вершины пытаемся найти оптимизацию
+            for (int v = 0; v < vertices.size(); ++v) {
+                TraceVertex vertex = vertices[v];
 
-    // КРИТИЧЕСКИ ВАЖНО: проверяем и восстанавливаем связность
-    if (!segments.isEmpty()) {
-        // Убеждаемся, что первый сегмент начинается с правильной точки
-        if (QLineF(segments.first().p1(), startPoint).length() > 2.0) {
-            segments.first().setP1(startPoint);
-        }
+                // Получаем начальную и конечную точки сегментов до и после вершины
+                QPointF segmentBeforeStart = segments[vertex.segmentBefore].p1();
+                QPointF segmentAfterEnd = segments[vertex.segmentAfter].p2();
 
-        // Убеждаемся, что последний сегмент заканчивается в правильной точке
-        if (QLineF(segments.last().p2(), endPoint).length() > 2.0) {
-            segments.last().setP2(endPoint);
-        }
+                // Длины сегментов
+                double beforeLength = segments[vertex.segmentBefore].length();
+                double afterLength = segments[vertex.segmentAfter].length();
 
-        // Проверяем связность между сегментами и исправляем при необходимости
-        for (int i = 0; i < segments.size() - 1; ++i) {
-            QPointF endOfCurrent = segments[i].p2();
-            QPointF startOfNext = segments[i + 1].p1();
+                if (beforeLength < minSegmentLength * 2 || afterLength < minSegmentLength * 2) {
+                    continue;
+                }
 
-            double gap = QLineF(endOfCurrent, startOfNext).length();
-            if (gap > 2.0) {
-                // Исправляем разрыв
-                segments[i + 1].setP1(endOfCurrent);
+                QVector2D dirBefore = QVector2D(vertex.point - segmentBeforeStart).normalized();
+                QVector2D dirAfter = QVector2D(segmentAfterEnd - vertex.point).normalized();
+
+                bool foundBetterPath = false;
+                int maxSteps = 30;
+                QLineF bestDirectConnection;
+                QLineF bestModifiedBefore, bestModifiedAfter;
+
+                // Пробуем разные расстояния от концов сегментов к вершине отскока
+                for (int stepBefore = 0; stepBefore <= maxSteps && !foundBetterPath; ++stepBefore) {
+                    double distFromStartBefore = beforeLength * stepBefore / maxSteps;
+
+                    if (distFromStartBefore < minSegmentLength && stepBefore != 0) continue;
+                    if (distFromStartBefore > beforeLength - minSegmentLength) continue;
+
+                    QPointF pointOnBefore = segmentBeforeStart + dirBefore.toPointF() * distFromStartBefore;
+
+                    for (int stepAfter = 0; stepAfter <= maxSteps; ++stepAfter) {
+                        double distFromVertexAfter = afterLength * stepAfter / maxSteps;
+
+                        if (distFromVertexAfter < minSegmentLength || distFromVertexAfter > afterLength - minSegmentLength)
+                            continue;
+
+                        QPointF pointOnAfter = vertex.point + dirAfter.toPointF() * distFromVertexAfter;
+
+                        // Проверяем, можно ли провести прямую линию между этими точками
+                        if (isDirectPathClear(pointOnBefore, pointOnAfter)) {
+                            double oldLength = (QLineF(segmentBeforeStart, vertex.point).length() +
+                                                QLineF(vertex.point, segmentAfterEnd).length());
+
+                            double newLength = (QLineF(segmentBeforeStart, pointOnBefore).length() +
+                                                QLineF(pointOnBefore, pointOnAfter).length() +
+                                                QLineF(pointOnAfter, segmentAfterEnd).length());
+
+                            double gain = oldLength - newLength;
+
+                            if (gain < 5.0 && gain / oldLength < 0.05) {
+                                continue; // слишком незначительное улучшение — пропускаем
+                            }
+                            // Нашли возможное соединение, сохраняем его
+                            bestDirectConnection = QLineF(pointOnBefore, pointOnAfter);
+                            bestModifiedBefore = QLineF(segmentBeforeStart, pointOnBefore);
+                            bestModifiedAfter = QLineF(pointOnAfter, segmentAfterEnd);
+                            foundBetterPath = true;
+                        }
+                    }
+                }
+
+                // Если нашли лучший путь, применяем оптимизацию
+                if (foundBetterPath) {
+                    QList<QLineF> newSegments;
+
+                    // Добавляем все сегменты до оптимизируемого
+                    for (int i = 0; i < vertex.segmentBefore; ++i) {
+                        newSegments.append(segments[i]);
+                    }
+
+                    // Добавляем оптимизированные сегменты
+                    newSegments.append(bestModifiedBefore);
+                    newSegments.append(bestDirectConnection);
+                    newSegments.append(bestModifiedAfter);
+
+                    // Добавляем все сегменты после оптимизируемого
+                    for (int i = vertex.segmentAfter + 1; i < segments.size(); ++i) {
+                        newSegments.append(segments[i]);
+                    }
+
+                    segments = newSegments;
+                    optimizationMade = true;
+                    qDebug() << "Оптимизация вершины на итерации" << iteration;
+                    qDebug() << "Колво сегментов =" << segments.size();
+                    break;
+                }
             }
         }
     }
@@ -768,7 +806,6 @@ void MainWindow::addTestComponents(const QString& filename) {
         return;
     }
 
-    // Добавим рамку как раньше
     QGraphicsRectItem *boardBorder = new QGraphicsRectItem(0, 0, 700, 500);
     boardBorder->setPos(50, 50);
     boardBorder->setPen(QPen(Qt::black, 3));
@@ -778,9 +815,9 @@ void MainWindow::addTestComponents(const QString& filename) {
     QTextStream in(&file);
     while (!in.atEnd()) {
         QString line = in.readLine();
-        if (line.trimmed().isEmpty()) continue; // пропустить пустые строки
+        if (line.trimmed().isEmpty()) continue;
         QStringList parts = line.split(' ', Qt::SkipEmptyParts);
-        if (parts.size() != 4) continue; // некорректная строка
+        if (parts.size() != 4) continue;
 
         bool okX, okY, okW, okH;
         double x = parts[0].toDouble(&okX);
@@ -793,7 +830,7 @@ void MainWindow::addTestComponents(const QString& filename) {
         }
     }
 
-    const double radius = 15.0;
+    const double radius = 5.0;
     targetCircle = new QGraphicsEllipseItem(-radius, -radius, 2*radius, 2*radius);
     targetCircle->setBrush(Qt::green);
     targetCircle->setPen(Qt::NoPen);

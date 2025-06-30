@@ -1,0 +1,11 @@
+release/customgraphicsview.o
+release/main.o
+release/mainwindow.o
+release/mod.o
+release/sbrtrace.o
+release/ui.o
+release/moc_customgraphicsview.o
+release/moc_mainwindow.o
+release/moc_mod.o
+release/moc_sbrtrace.o
+release/moc_ui.o
